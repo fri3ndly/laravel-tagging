@@ -186,31 +186,17 @@ trait Taggable
      * @return Builder
      * @access private
      */
-    public function scopeWithAllTags(Builder $query, $tagNames): Builder
+    public function scopeWithAllTags($query, $tags)
     {
-        if(!is_array($tagNames)) {
-            $tagNames = func_get_args();
-            array_shift($tagNames);
-        }
+        $tags =  TaggingUtility::makeTagArray($tags);
 
-        $tagNames = TaggingUtility::makeTagArray($tagNames);
+        collect($tags)->each(function ($tag) use ($query) {
 
-        $className = $query->getModel()->getMorphClass();
-
-        foreach($tagNames as $tagSlug) {
-
-            $model = TaggingUtility::taggedModelString();
-
-            $tags = $model::query()
-                ->where('tag_slug', TaggingUtility::normalize($tagSlug))
-                ->where('taggable_type', $className)
-                ->get()
-                ->pluck('taggable_id');
-
-            $primaryKey = $this->getKeyName();
-            $query->whereIn($this->getTable().'.'.$primaryKey, $tags);
-        }
-
+            $query->whereHas('tagged', function ($q) use ($tag) {
+                $q->where('tagging_tagged.tag_name', $tag ? $tag : 0);
+            });
+        });
+        //dd($query->toSql());
         return $query;
     }
 
